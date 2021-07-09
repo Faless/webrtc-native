@@ -54,6 +54,10 @@ jobs:
           - platform: osx
             arch: 'x64'
             sconsflags: 'bits=64'
+            os: 'macos-10.15'
+          - platform: osx
+            arch: 'arm64'
+            sconsflags: 'bits=64 macos_arch=arm64 macos_sdk_path=/Library/Developer/CommandLineTools/SDKs/MacOSX11.1.sdk/'
             os: 'macos-latest'
 
           # Windows
@@ -69,11 +73,10 @@ jobs:
             msvc_arch: amd64
 
     env:
-      SCONSFLAGS: ${{ matrix.sconsflags }} platform=${{ matrix.platform }} --jobs=2
       NDK_VERSION: 22b
       ANDROID_NDK_ROOT: ${{github.workspace}}/android-ndk-r22b
       MSVC_VARS: 'C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat'
-
+      SCONSFLAGS: '${{ matrix.sconsflags }} platform=${{ matrix.platform }} --jobs=2'
     defaults:
       run:
         shell: bash
