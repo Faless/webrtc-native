@@ -166,6 +166,8 @@ elif target_platform == 'osx':
 
     # Only 64-bits is supported for OS X
     target_arch = '64'
+    if env['macos_arch'] != 'x86_64':
+        target_arch = 'arm64'
 
     env.Append(CCFLAGS = ['-std=c++14', '-arch', env['macos_arch']])
     env.Append(LINKFLAGS = ['-arch', env['macos_arch'], '-framework', 'Cocoa', '-Wl,-undefined,dynamic_lookup'])
