@@ -126,7 +126,6 @@ if env["platform"] == "linux":
         LINKFLAGS=[
             "-Wl,--no-undefined",
             "-static-libgcc",
-            "-static-libstdc++",
         ]
     )
     # And add some linux dependencies.
