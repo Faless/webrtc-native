@@ -207,7 +207,7 @@ jobs:
 
       - name: Patch godot-cpp to support windows arm64 builds.
         run: |
-          patch -p1 < win_arm64_4.1.diff
+          patch -p1 < misc/patches/win_arm64_4.1.diff
 
       - name: Print tools versions
         run: |
