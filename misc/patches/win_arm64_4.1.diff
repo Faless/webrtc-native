@@ -1,0 +1,15 @@
+diff --git a/godot-cpp/tools/windows.py b/godot-cpp/tools/windows.py
+index e64695a..0b1a1c6 100644
+--- a/godot-cpp/tools/windows.py
++++ b/godot-cpp/tools/windows.py
+@@ -20,6 +20,10 @@ def generate(env):
+     if not env["use_mingw"] and msvc.exists(env):
+         if env["arch"] == "x86_64":
+             env["TARGET_ARCH"] = "amd64"
++        elif env["arch"] == "arm64":
++            env["TARGET_ARCH"] = "arm64"
++        elif env["arch"] == "arm32":
++            env["TARGET_ARCH"] = "arm"
+         elif env["arch"] == "x86_32":
+             env["TARGET_ARCH"] = "x86"
+         env["is_msvc"] = True

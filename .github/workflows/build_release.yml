@@ -150,7 +150,7 @@ jobs:
         continue-on-error: true
 
       - name: Install Windows build dependencies
-        if: ${{ matrix.platform == 'windows' }}
+        if: ${{ matrix.platform == 'windows' && ! (matrix.arch == 'arm64') }}
         run: |
           sudo apt-get update
           sudo apt-get install build-essential mingw-w64
@@ -204,6 +204,10 @@ jobs:
           patch -p1 < misc/patches/build_profile.diff
           patch -p1 < misc/patches/build_profile_4.0.diff
           patch -p1 < misc/patches/build_profile_3.x.diff
+
+      - name: Patch godot-cpp to support windows arm64 builds.
+        run: |
+          patch -p1 < win_arm64_4.1.diff
 
       - name: Print tools versions
         run: |
