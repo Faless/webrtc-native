@@ -220,10 +220,12 @@ jobs:
           scons target=template_release godot_version=4.1
 
       - name: Compile Extension (4.0) - template_debug - ${{ matrix.platform }} - ${{ matrix.arch }}
+        if: ${{ ! (matrix.platform == 'windows' && matrix.arch == 'arm64') }}
         run: |
           scons target=template_debug godot_version=4.0
 
       - name: Compile Extension (4.0) - template_release - ${{ matrix.platform }} - ${{ matrix.arch }}
+        if: ${{ ! (matrix.platform == 'windows' && matrix.arch == 'arm64') }}
         run: |
           scons target=template_release godot_version=4.0
 
