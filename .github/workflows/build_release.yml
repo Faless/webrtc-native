@@ -117,15 +117,18 @@ jobs:
             gdnative_flags: 'bits=32'
             sconsflags: 'use_mingw=yes'
             os: 'ubuntu-20.04'
-            msvc_arch: amd64_x86
             cache-name: win-x86_32
           - platform: windows
             arch: 'x86_64'
             gdnative_flags: 'bits=64'
             sconsflags: 'use_mingw=yes'
             os: 'ubuntu-20.04'
-            msvc_arch: amd64
             cache-name: win-x86_64
+          - platform: windows
+            arch: 'arm64'
+            gdnative_flags: 'bits=64'
+            os: 'windows-latest'
+            cache-name: win-amd64
 
     env:
       SCONS_CACHE: ${{ github.workspace }}/.scons-cache/
@@ -225,6 +228,7 @@ jobs:
           scons target=template_release godot_version=4.0
 
       - name: Compile GDNative (3.5+) - release ${{ matrix.platform }} - ${{ matrix.arch }}
+        if: ${{ ! (matrix.platform == 'windows' && matrix.arch == 'arm64') }}
         run: |
           scons target=release generate_bindings=yes ${{ matrix.gdnative_flags }} godot_version=3
 
