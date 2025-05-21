@@ -71,6 +71,12 @@ jobs:
           - platform: ios
             arch: 'arm64'
             gdnative_flags: 'ios_arch=arm64'
+            sconsflags: 'ios_simulator=true'
+            os: 'macos-latest'
+            cache-name: ios-arm64-simulator
+          - platform: ios
+            arch: 'arm64'
+            gdnative_flags: 'ios_arch=arm64'
             sconsflags: ''
             os: 'macos-latest'
             cache-name: ios-arm64
@@ -210,6 +216,7 @@ jobs:
         run: |
           patch -p1 < misc/patches/build_profile.diff
           patch -p1 < misc/patches/build_profile_3.x.diff
+          patch -p1 < misc/patches/gdnative_libs_file.diff
 
       - name: Print tools versions
         run: |
@@ -231,7 +238,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.job }}-${{ matrix.platform }}-${{ matrix.arch }}
+          name: ${{ github.job }}-${{ matrix.cache-name }}
           path: |
             bin/
             !bin/thirdparty/

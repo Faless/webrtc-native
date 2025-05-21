@@ -1,0 +1,12 @@
+diff --git a/godot-cpp-3.x/SConstruct b/godot-cpp-3.x/SConstruct
+index f653d54..41b9ced 100644
+--- a/godot-cpp-3.x/SConstruct
++++ b/godot-cpp-3.x/SConstruct
+@@ -520,6 +520,5 @@ if env["build_library"]:
+     library = env.StaticLibrary(target=env.File("bin/%s" % library_name), source=sources)
+     Default(library)
+ 
+-env.Append(LIBPATH=[env.Dir("bin")])
+-env.Append(LIBS=library_name)
++env.Append(LIBS=[env.File("bin/%s" % library_name)])
+ Return("env")

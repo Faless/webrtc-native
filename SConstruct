@@ -70,7 +70,9 @@ if env["godot_version"] == "3":
 
     env = cpp_env.Clone()
 
-    if env["target"] == "debug":
+    target = "template_" + env["target"]
+
+    if target != "template_release":
         env.Append(CPPDEFINES=["DEBUG_ENABLED"])
 
     if env["platform"] == "windows" and env["use_mingw"]:
@@ -103,8 +105,7 @@ if env["godot_version"] == "3":
         }[env["android_arch"]]
         env["arch_suffix"] = env["arch"]
 
-    target_compat = "template_" + env["target"]
-    env["suffix"] = ".{}.{}.{}".format(env["platform"], target_compat, env["arch_suffix"])
+    env["suffix"] = ".{}.{}.{}".format(env["platform"], target, env["arch_suffix"])
     env["debug_symbols"] = False
 
     # Some windows specific hacks.
@@ -126,6 +127,7 @@ else:
     sconstruct = env.get("godot_cpp", "godot-cpp") + "/SConstruct"
     cpp_env = SConscript(sconstruct)
     env = cpp_env.Clone()
+    target = env["target"]
 
 if cpp_env.get("is_msvc", False):
     # Make sure we don't build with static cpp on MSVC (default in recent godot-cpp versions).
@@ -153,9 +155,8 @@ if env["platform"] == "macos" and os.environ.get("OSXCROSS_ROOT", ""):
 
 opts.Update(env)
 
-target = env["target"]
 if env["godot_version"] == "3":
-    result_path = os.path.join("bin", "gdnative", "webrtc" if env["target"] == "release" else "webrtc_debug")
+    result_path = os.path.join("bin", "gdnative", "webrtc" if target == "template_release" else "webrtc_debug")
 else:
     result_path = os.path.join("bin", "extension", "webrtc")
 
@@ -215,9 +216,18 @@ if env["platform"] == "linux" or (
 
 # Make the shared library
 result_name = "libwebrtc_native{}{}".format(env["suffix"], env["SHLIBSUFFIX"])
-if env["godot_version"] != "3" and env["platform"] == "macos":
+if env["godot_version"] != "3" and env["platform"] == "ios":
+    xcframework_path = os.path.join(result_path, "lib", "libwebrtc_native.ios.{}.xcframework".format(target))
+    identifier = "ios-" + env["arch"] + ("-simulator" if env["ios_simulator"] else "")
+    library_file = env.StaticLibrary(
+        target=os.path.join("{}/{}/libwebrtc_native.framework/libwebrtc_native".format(xcframework_path, identifier)),
+        source=sources + env["LIBS"],
+    )
+    plist_file = env.InstallAs(os.path.join(xcframework_path, "Info.plist"), "misc/dist/ios/Info.plist")
+    library = [library_file, plist_file]
+elif env["godot_version"] != "3" and env["platform"] == "macos":
     framework_path = os.path.join(
-        result_path, "lib", "libwebrtc_native.macos.{}.{}.framework".format(env["target"], env["arch"])
+        result_path, "lib", "libwebrtc_native.macos.{}.{}.framework".format(target, env["arch"])
     )
     library_file = env.SharedLibrary(target=os.path.join(framework_path, result_name), source=sources)
     plist_file = env.Substfile(
@@ -233,14 +243,14 @@ Default(library)
 
 # GDNativeLibrary
 if env["godot_version"] == "3":
-    gdnlib = "webrtc" if target != "debug" else "webrtc_debug"
+    gdnlib = "webrtc" if target != "template_debug" else "webrtc_debug"
     ext = ".tres"
     extfile = env.Substfile(
         os.path.join(result_path, gdnlib + ext),
         "misc/webrtc" + ext,
         SUBST_DICT={
             "{GDNATIVE_PATH}": gdnlib,
-            "{TARGET}": "template_" + env["target"],
+            "{TARGET}": target,
         },
     )
 else:
