@@ -28,7 +28,7 @@ def validate_godotcpp_dir(key, val, env):
 
 env = Environment()
 opts = Variables(["customs.py"], ARGUMENTS)
-opts.Add(EnumVariable("godot_version", "The Godot target version", "4", ["3", "4"], {"4.1+": "4", "4.1": "4"}))
+opts.Add(EnumVariable("godot_version", "The Godot target version", "4", ["3", "4"]))
 opts.Add(
     PathVariable(
         "godot_cpp",
@@ -46,6 +46,9 @@ if "macos_deployment_target" not in ARGUMENTS:
     ARGUMENTS["macos_deployment_target"] = "11.0"
 if "android_api_level" not in ARGUMENTS:
     ARGUMENTS["android_api_level"] = "28"
+# Godot CPP (4.3+) default API verison
+if "api_version" not in ARGUMENTS:
+    ARGUMENTS["api_version"] = "4.3"
 
 # Recent godot-cpp versions disables exceptions by default, but libdatachannel requires them.
 ARGUMENTS["disable_exceptions"] = "no"
@@ -123,6 +126,7 @@ if env["godot_version"] == "3":
         for flags in (env["CCFLAGS"], env["LINKFLAGS"], cpp_env["CCFLAGS"], cpp_env["LINKFLAGS"]):
             replace_flags(flags, {"-m32": None, "-m64": None})
 else:
+    Export("env")
     sconstruct = env.get("godot_cpp", "godot-cpp") + "/SConstruct"
     cpp_env = SConscript(sconstruct)
     env = cpp_env.Clone()
