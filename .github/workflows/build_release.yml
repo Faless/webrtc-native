@@ -197,7 +197,6 @@ jobs:
           echo "$GITHUB_WORKSPACE/${{ matrix.buildroot }}/bin" >> $GITHUB_PATH
           echo "PKG_CONFIG=$GITHUB_WORKSPACE/${{ matrix.buildroot }}/share/pkgconfig/" >> $GITHUB_ENV
           patch -p1 < misc/patches/scons_path.diff
-          patch -p1 < misc/patches/gdnantive_arm_warnings.diff
 
       - name: Setup Android dependencies
         if: ${{ matrix.platform  == 'android' }}
@@ -206,7 +205,7 @@ jobs:
           ndk-version: r28b
           link-to-sdk: true
 
-      - name: Patch godot-cpp to support build profile.
+      - name: Patch godot-cpp-3.x to support build profile.
         run: |
           patch -p1 < misc/patches/build_profile_3.x.diff
 
