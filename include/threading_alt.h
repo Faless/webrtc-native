@@ -1,5 +1,5 @@
 /**************************************************************************/
-/*  init_gdextension.cpp                                                  */
+/*  threading_alt.h                                                       */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
@@ -28,64 +28,20 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#ifndef GDNATIVE_WEBRTC
+#pragma once
 
-#include "WebRTCLibDataChannel.hpp"
-#include "WebRTCLibPeerConnection.hpp"
-
-#include <gdextension_interface.h>
-#include <godot_cpp/core/class_db.hpp>
-#include <godot_cpp/core/defs.hpp>
-#include <godot_cpp/godot.hpp>
-
-#ifdef _WIN32
-// See upstream godot-cpp GH-771.
-#undef GDN_EXPORT
-#define GDN_EXPORT __declspec(dllexport)
+#ifdef __cplusplus
+extern "C" {
 #endif
 
-extern "C" {
-int std_mbedtls_platform_init();
-void std_mbedtls_platform_free();
-}
+typedef struct {
+	void *mutex;
+} mbedtls_threading_mutex_t;
 
-using namespace godot;
-using namespace godot_webrtc;
+// MbedTLS 3.x compat
+typedef mbedtls_threading_mutex_t mbedtls_platform_mutex_t;
+#define MBEDTLS_ERR_THREADING_USAGE_ERROR MBEDTLS_ERR_THREADING_MUTEX_ERROR
 
-void register_webrtc_extension_types(ModuleInitializationLevel p_level) {
-	if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE) {
-		return;
-	}
-
-	int ret = std_mbedtls_platform_init();
-	if (ret) {
-		ERR_PRINT("Failed to initialize mbedTLS: " + itos(ret));
-	}
-	WebRTCLibPeerConnection::initialize_signaling();
-	godot::ClassDB::register_class<WebRTCLibDataChannel>();
-	godot::ClassDB::register_class<WebRTCLibPeerConnection>();
-	WebRTCPeerConnection::set_default_extension("WebRTCLibPeerConnection");
-}
-
-void unregister_webrtc_extension_types(ModuleInitializationLevel p_level) {
-	if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE) {
-		return;
-	}
-
-	WebRTCLibPeerConnection::deinitialize_signaling();
-	std_mbedtls_platform_free();
-}
-
-extern "C" {
-GDExtensionBool GDE_EXPORT webrtc_extension_init(const GDExtensionInterfaceGetProcAddress p_interface, const GDExtensionClassLibraryPtr p_library, GDExtensionInitialization *r_initialization) {
-	GDExtensionBinding::InitObject init_obj(p_interface, p_library, r_initialization);
-
-	init_obj.register_initializer(register_webrtc_extension_types);
-	init_obj.register_terminator(unregister_webrtc_extension_types);
-	init_obj.set_minimum_library_initialization_level(MODULE_INITIALIZATION_LEVEL_SCENE);
-
-	return init_obj.init();
-}
-}
-
+#ifdef __cplusplus
+};
 #endif

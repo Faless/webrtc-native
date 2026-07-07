@@ -1,7 +1,7 @@
 def build_library(env, mbedtls):
     rtc_config = {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo" if env["debug_symbols"] else "Release",
-        "CMAKE_CXX_FLAGS": "-DMBEDTLS_SSL_DTLS_SRTP",
+        "CMAKE_CXX_FLAGS": env.MbedTLSFlags(),
         "USE_NICE": 0,
         "NO_WEBSOCKET": 1,
         "NO_EXAMPLES": 1,

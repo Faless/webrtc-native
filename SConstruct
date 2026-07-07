@@ -188,6 +188,8 @@ for tool in ["cmake", "mbedtls", "rtc"]:
 # Make sure Substfile is also loaded
 env.Tool("textfile")
 
+env["MBEDTLS_CONFIG"] = env.File("include/std_mbedtls_config.h").abspath
+env["MBEDTLS_THREADING_ALT"] = env.File("include/threading_alt.h").abspath
 mbedtls = env.BuildMbedTLS()
 
 rtc = env.BuildLibDataChannel(mbedtls)

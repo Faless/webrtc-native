@@ -1,5 +1,5 @@
 /**************************************************************************/
-/*  init_gdextension.cpp                                                  */
+/*  std_mbedtls_platform.cpp                                              */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
@@ -28,64 +28,62 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#ifndef GDNATIVE_WEBRTC
+#include <mbedtls/build_info.h>
+#include <mbedtls/threading.h>
+#include <psa/crypto.h>
 
-#include "WebRTCLibDataChannel.hpp"
-#include "WebRTCLibPeerConnection.hpp"
+#include <mutex>
 
-#include <gdextension_interface.h>
-#include <godot_cpp/core/class_db.hpp>
-#include <godot_cpp/core/defs.hpp>
-#include <godot_cpp/godot.hpp>
-
-#ifdef _WIN32
-// See upstream godot-cpp GH-771.
-#undef GDN_EXPORT
-#define GDN_EXPORT __declspec(dllexport)
+#if !defined(MBEDTLS_THREADING_C)
+#error "WebRTC-Native require mbedTLS with threading support"
 #endif
 
 extern "C" {
-int std_mbedtls_platform_init();
-void std_mbedtls_platform_free();
-}
-
-using namespace godot;
-using namespace godot_webrtc;
-
-void register_webrtc_extension_types(ModuleInitializationLevel p_level) {
-	if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE) {
+#if defined(MBEDTLS_THREADING_ALT)
+void std_mbedtls_mutex_init(mbedtls_platform_mutex_t *p_mutex) {
+	if (p_mutex == nullptr) {
 		return;
 	}
-
-	int ret = std_mbedtls_platform_init();
-	if (ret) {
-		ERR_PRINT("Failed to initialize mbedTLS: " + itos(ret));
-	}
-	WebRTCLibPeerConnection::initialize_signaling();
-	godot::ClassDB::register_class<WebRTCLibDataChannel>();
-	godot::ClassDB::register_class<WebRTCLibPeerConnection>();
-	WebRTCPeerConnection::set_default_extension("WebRTCLibPeerConnection");
+	p_mutex->mutex = new std::mutex();
 }
 
-void unregister_webrtc_extension_types(ModuleInitializationLevel p_level) {
-	if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE) {
+void std_mbedtls_mutex_free(mbedtls_platform_mutex_t *p_mutex) {
+	if (p_mutex == nullptr || p_mutex->mutex == nullptr) {
 		return;
 	}
-
-	WebRTCLibPeerConnection::deinitialize_signaling();
-	std_mbedtls_platform_free();
+	delete ((std::mutex *)p_mutex->mutex);
 }
 
-extern "C" {
-GDExtensionBool GDE_EXPORT webrtc_extension_init(const GDExtensionInterfaceGetProcAddress p_interface, const GDExtensionClassLibraryPtr p_library, GDExtensionInitialization *r_initialization) {
-	GDExtensionBinding::InitObject init_obj(p_interface, p_library, r_initialization);
-
-	init_obj.register_initializer(register_webrtc_extension_types);
-	init_obj.register_terminator(unregister_webrtc_extension_types);
-	init_obj.set_minimum_library_initialization_level(MODULE_INITIALIZATION_LEVEL_SCENE);
-
-	return init_obj.init();
-}
+int std_mbedtls_mutex_lock(mbedtls_platform_mutex_t *p_mutex) {
+	if (p_mutex == nullptr || p_mutex->mutex == nullptr) {
+		return MBEDTLS_ERR_THREADING_USAGE_ERROR;
+	}
+	((std::mutex *)p_mutex->mutex)->lock();
+	return 0;
 }
 
+int std_mbedtls_mutex_unlock(mbedtls_platform_mutex_t *p_mutex) {
+	if (p_mutex == nullptr || p_mutex->mutex == nullptr) {
+		return MBEDTLS_ERR_THREADING_USAGE_ERROR;
+	}
+	((std::mutex *)p_mutex->mutex)->unlock();
+	return 0;
+}
 #endif
+int std_mbedtls_platform_init() {
+#if defined(MBEDTLS_THREADING_ALT)
+	mbedtls_threading_set_alt(
+			std_mbedtls_mutex_init,
+			std_mbedtls_mutex_free,
+			std_mbedtls_mutex_lock,
+			std_mbedtls_mutex_unlock);
+#endif
+	printf("Started!");
+	return psa_crypto_init();
+}
+void std_mbedtls_platform_free() {
+#if defined(MBEDTLS_THREADING_ALT)
+	mbedtls_threading_free_alt();
+#endif
+}
+};

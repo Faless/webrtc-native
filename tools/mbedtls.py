@@ -1,6 +1,25 @@
+def escape_define(env, config):
+    return f'"<{config}>"' if env.msvc else f'\\"{config}\\"'
+
+
+def get_build_flags(env):
+    if env["MBEDTLS_CONFIG"]:
+        if env.msvc:
+            return "-DMBEDTLS_CONFIG_FILE={}".format(escape_define(env, env["MBEDTLS_CONFIG"]))
+        return "'-DMBEDTLS_CONFIG_FILE={}'".format(escape_define(env, env["MBEDTLS_CONFIG"]))
+    return "-DMBEDTLS_SSL_DTLS_SRT"
+
+
 def build_library(env):
+    deps = []
     mbedtls_bin = env.Dir("bin/thirdparty/mbedtls/{}/{}/install".format(env["platform"], env["arch"]))
-    c_flags = "-DMBEDTLS_SSL_DTLS_SRTP"
+    c_flags = env.MbedTLSFlags()
+    if env["MBEDTLS_CONFIG"]:
+        env.Append(CPPDEFINES=[("MBEDTLS_CONFIG_FILE", escape_define(env, env["MBEDTLS_CONFIG"]))])
+    if env["MBEDTLS_THREADING_ALT"]:
+        alt = env.File(env["MBEDTLS_THREADING_ALT"])
+        deps += env.InstallAs(env["MBEDTLS_INCLUDE"] + "/threading_alt.h", alt)
+
     if env["platform"] == "linux":
         # This is needed on some arch when building with the godot buildroot toolchain
         c_flags += " -fPIC"
@@ -16,6 +35,7 @@ def build_library(env):
         "MBEDTLS_FATAL_WARNINGS": 0,
         "CMAKE_INSTALL_LIBDIR": "lib",
     }
+
     lib_ext = ".lib" if env.msvc else ".a"
     lib_prefix = "" if env.msvc else "lib"
     mbedtls_libs = [
@@ -36,6 +56,7 @@ def build_library(env):
         env.Dir("thirdparty/mbedtls"),
         cmake_options=mbedtls_config,
         cmake_outputs=mbedtls_libs + mbedtls_cmake_config,
+        dependencies=deps,
         install=True,
     )
 
@@ -61,8 +82,11 @@ def generate(env):
     crypto = env.File(mbedtls_install_dir + "/lib/libmbedcrypto" + lib_ext)
     x509 = env.File(mbedtls_install_dir + "/lib/libmbedx509" + lib_ext)
     includes = env.Dir("thirdparty/mbedtls/include")
-    env.AddMethod(build_library, "BuildMbedTLS")
     env["MBEDTLS_LIBRARY"] = mbedtls.abspath
     env["MBEDTLS_CRYPTO_LIBRARY"] = crypto.abspath
     env["MBEDTLS_X509_LIBRARY"] = x509.abspath
     env["MBEDTLS_INCLUDE"] = includes.abspath
+    env["MBEDTLS_CONFIG"] = ""
+    env["MBEDTLS_THREADING_ALT"] = ""
+    env.AddMethod(build_library, "BuildMbedTLS")
+    env.AddMethod(get_build_flags, "MbedTLSFlags")
