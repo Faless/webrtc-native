@@ -2,7 +2,8 @@
 
 entry_symbol = "webrtc_extension_init"
 compatibility_minimum = 4.3
-skip_flags = "web"
+
+exclude_tags = ["web", "no-webrtc"]
 
 [libraries]
 
