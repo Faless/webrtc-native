@@ -69,7 +69,7 @@ void WebRTCLibPeerConnection::initialize_signaling() {
 }
 
 void WebRTCLibPeerConnection::deinitialize_signaling() {
-	rtc::Cleanup();
+	rtc::Cleanup().wait();
 }
 
 Error WebRTCLibPeerConnection::_parse_ice_server(rtc::Configuration &r_config, Dictionary p_server) {
