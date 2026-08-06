@@ -99,14 +99,12 @@ void WebRTCLibDataChannel::bind_channel(std::shared_ptr<rtc::DataChannel> p_chan
 }
 
 void WebRTCLibDataChannel::queue_packet(const uint8_t *data, uint32_t size, bool p_is_string) {
-	mutex->lock();
-
 	std::vector<uint8_t> packet;
 	packet.resize(size);
 	memcpy(&packet[0], data, size);
-	packet_queue.push(QueuedPacket(packet, p_is_string));
 
-	mutex->unlock();
+	std::unique_lock lock(mutex);
+	packet_queue.push(QueuedPacket(std::move(packet), p_is_string));
 }
 
 void WebRTCLibDataChannel::_set_write_mode(WriteMode p_mode) {
@@ -179,18 +177,15 @@ void WebRTCLibDataChannel::_close() try {
 }
 
 Error WebRTCLibDataChannel::_get_packet(const uint8_t **r_buffer, int32_t *r_len) {
+	std::unique_lock lock(mutex);
+
 	ERR_FAIL_COND_V(packet_queue.empty(), ERR_UNAVAILABLE);
-
-	mutex->lock();
-
 	// Update current packet and pop queue
 	current_packet = packet_queue.front();
 	packet_queue.pop();
 	// Set out buffer and size (buffer will be gone at next get_packet or close)
 	*r_buffer = &current_packet.first[0];
 	*r_len = current_packet.first.size();
-
-	mutex->unlock();
 
 	return OK;
 }
@@ -214,6 +209,7 @@ Error WebRTCLibDataChannel::_put_packet(const uint8_t *p_buffer, int32_t p_len) 
 }
 
 int32_t WebRTCLibDataChannel::_get_available_packet_count() const {
+	std::unique_lock lock(mutex);
 	return packet_queue.size();
 }
 
@@ -222,11 +218,9 @@ int32_t WebRTCLibDataChannel::_get_max_packet_size() const {
 }
 
 WebRTCLibDataChannel::WebRTCLibDataChannel() {
-	mutex = new std::mutex;
 }
 
 WebRTCLibDataChannel::~WebRTCLibDataChannel() {
 	_close();
 	channel = nullptr;
-	delete mutex;
 }

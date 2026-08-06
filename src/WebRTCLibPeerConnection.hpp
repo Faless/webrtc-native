@@ -56,8 +56,23 @@ class WebRTCLibPeerConnection : public godot::WebRTCPeerConnectionExtension {
 	GDCLASS(WebRTCLibPeerConnection, WebRTCPeerConnectionExtension);
 
 private:
+	class Signal {
+		godot::String method;
+		godot::Variant argv[3];
+		int argc = 0;
+
+	public:
+		void emit(godot::Object *p_object);
+		Signal(godot::String p_method, int p_argc, const godot::Variant *p_argv);
+	};
+
 	std::shared_ptr<rtc::PeerConnection> peer_connection = nullptr;
 	godot::Array candidates;
+
+	std::mutex mutex;
+	std::queue<Signal> signal_queue;
+
+	void _queue_signal(godot::String p_name, int p_argc, const godot::Variant &p_arg1 = godot::Variant(), const godot::Variant &p_arg2 = godot::Variant(), const godot::Variant &p_arg3 = godot::Variant());
 
 	godot::Error _create_pc(rtc::Configuration &r_config);
 	godot::Error _parse_ice_server(rtc::Configuration &r_config, godot::Dictionary p_server);
@@ -102,37 +117,6 @@ public:
 	~WebRTCLibPeerConnection();
 
 private:
-	class Signal {
-		godot::String method;
-		godot::Variant argv[3];
-		int argc = 0;
-
-	public:
-		Signal(godot::String p_method, int p_argc, const godot::Variant *p_argv) {
-			method = p_method;
-			argc = p_argc;
-			for (int i = 0; i < argc; i++) {
-				argv[i] = p_argv[i];
-			}
-		}
-
-		void emit(godot::Object *p_object) {
-			if (argc == 0) {
-				p_object->emit_signal(method);
-			} else if (argc == 1) {
-				p_object->emit_signal(method, argv[0]);
-			} else if (argc == 2) {
-				p_object->emit_signal(method, argv[0], argv[1]);
-			} else if (argc == 3) {
-				p_object->emit_signal(method, argv[0], argv[1], argv[2]);
-			}
-		}
-	};
-
-	std::mutex *mutex_signal_queue = nullptr;
-	std::queue<Signal> signal_queue;
-
-	void queue_signal(godot::String p_name, int p_argc, const godot::Variant &p_arg1 = godot::Variant(), const godot::Variant &p_arg2 = godot::Variant(), const godot::Variant &p_arg3 = godot::Variant());
 };
 
 } // namespace godot_webrtc

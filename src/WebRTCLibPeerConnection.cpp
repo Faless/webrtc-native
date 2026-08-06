@@ -45,6 +45,7 @@ using namespace godot_webrtc;
 #include <godot_cpp/variant/utility_functions.hpp>
 #define VERBOSE_PRINT(str) UtilityFunctions::print_verbose(str)
 #endif
+
 void LogCallback(rtc::LogLevel level, std::string message) {
 	switch (level) {
 		case rtc::LogLevel::Fatal:
@@ -60,6 +61,28 @@ void LogCallback(rtc::LogLevel level, std::string message) {
 	}
 }
 
+/// WebRTCLibPeerConnection::Signal
+WebRTCLibPeerConnection::Signal::Signal(String p_method, int p_argc, const Variant *p_argv) {
+	method = p_method;
+	argc = p_argc;
+	for (int i = 0; i < argc; i++) {
+		argv[i] = p_argv[i];
+	}
+}
+
+void WebRTCLibPeerConnection::Signal::emit(Object *p_object) {
+	if (argc == 0) {
+		p_object->emit_signal(method);
+	} else if (argc == 1) {
+		p_object->emit_signal(method, argv[0]);
+	} else if (argc == 2) {
+		p_object->emit_signal(method, argv[0], argv[1]);
+	} else if (argc == 3) {
+		p_object->emit_signal(method, argv[0], argv[1], argv[2]);
+	}
+}
+
+/// WebRTCLibPeerConnection
 void WebRTCLibPeerConnection::initialize_signaling() {
 #ifdef DEBUG_ENABLED
 	rtc::InitLogger(rtc::LogLevel::Debug, LogCallback);
@@ -70,6 +93,12 @@ void WebRTCLibPeerConnection::initialize_signaling() {
 
 void WebRTCLibPeerConnection::deinitialize_signaling() {
 	rtc::Cleanup().wait();
+}
+
+void WebRTCLibPeerConnection::_queue_signal(String p_name, int p_argc, const Variant &p_arg1, const Variant &p_arg2, const Variant &p_arg3) {
+	const Variant argv[3] = { p_arg1, p_arg2, p_arg3 };
+	std::unique_lock lock(mutex);
+	signal_queue.push(Signal(p_name, p_argc, argv));
 }
 
 Error WebRTCLibPeerConnection::_parse_ice_server(rtc::Configuration &r_config, Dictionary p_server) {
@@ -293,11 +322,15 @@ Error WebRTCLibPeerConnection::_add_ice_candidate(const String &sdpMidName, int3
 Error WebRTCLibPeerConnection::_poll() {
 	ERR_FAIL_COND_V(!peer_connection, ERR_UNCONFIGURED);
 
-	while (!signal_queue.empty()) {
-		mutex_signal_queue->lock();
-		Signal signal = signal_queue.front();
-		signal_queue.pop();
-		mutex_signal_queue->unlock();
+	std::queue<Signal> local_queue;
+	{
+		std::unique_lock lock(mutex);
+		local_queue.swap(signal_queue);
+	}
+
+	while (!local_queue.empty()) {
+		Signal signal = local_queue.front();
+		local_queue.pop();
 		signal.emit(this);
 	}
 	return OK;
@@ -311,17 +344,14 @@ void WebRTCLibPeerConnection::_close() {
 		}
 	}
 
-	while (!signal_queue.empty()) {
-		signal_queue.pop();
-	}
+	std::unique_lock lock(mutex);
+	signal_queue = {};
 }
 
 void WebRTCLibPeerConnection::_init() {
 #ifdef GDNATIVE_WEBRTC
 	register_interface(&interface);
 #endif
-	mutex_signal_queue = new std::mutex;
-
 	_initialize(Dictionary());
 }
 
@@ -335,23 +365,14 @@ Error WebRTCLibPeerConnection::_create_pc(rtc::Configuration &r_config) try {
 	// Binding this should be fine as long as we call close when going out of scope.
 	peer_connection->onLocalDescription([this](rtc::Description description) {
 		String type = description.type() == rtc::Description::Type::Offer ? "offer" : "answer";
-		queue_signal("session_description_created", 2, type, String(std::string(description).c_str()));
+		_queue_signal("session_description_created", 2, type, String(std::string(description).c_str()));
 	});
 	peer_connection->onLocalCandidate([this](rtc::Candidate candidate) {
-		queue_signal("ice_candidate_created", 3, String(candidate.mid().c_str()), 0, String(candidate.candidate().c_str()));
+		_queue_signal("ice_candidate_created", 3, String(candidate.mid().c_str()), 0, String(candidate.candidate().c_str()));
 	});
 	peer_connection->onDataChannel([this](std::shared_ptr<rtc::DataChannel> channel) {
-		queue_signal("data_channel_received", 1, WebRTCLibDataChannel::new_data_channel(channel, false));
+		_queue_signal("data_channel_received", 1, WebRTCLibDataChannel::new_data_channel(channel, false));
 	});
-	/*
-	peer_connection->onStateChange([](rtc::PeerConnection::State state) {
-		std::cout << "[State: " << state << "]" << std::endl;
-	});
-
-	peer_connection->onGatheringStateChange([](rtc::PeerConnection::GatheringState state) {
-		std::cout << "[Gathering State: " << state << "]" << std::endl;
-	});
-	*/
 	return OK;
 } catch (const std::exception &e) {
 	ERR_PRINT(e.what());
@@ -371,12 +392,4 @@ WebRTCLibPeerConnection::~WebRTCLibPeerConnection() {
 	}
 #endif
 	_close();
-	delete mutex_signal_queue;
-}
-
-void WebRTCLibPeerConnection::queue_signal(String p_name, int p_argc, const Variant &p_arg1, const Variant &p_arg2, const Variant &p_arg3) {
-	mutex_signal_queue->lock();
-	const Variant argv[3] = { p_arg1, p_arg2, p_arg3 };
-	signal_queue.push(Signal(p_name, p_argc, argv));
-	mutex_signal_queue->unlock();
 }

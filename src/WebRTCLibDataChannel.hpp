@@ -58,7 +58,7 @@ class WebRTCLibDataChannel : public godot::WebRTCDataChannelExtension {
 
 private:
 	using QueuedPacket = std::pair<std::vector<uint8_t>, bool>;
-	std::mutex *mutex;
+	mutable std::mutex mutex;
 	std::queue<QueuedPacket> packet_queue;
 	QueuedPacket current_packet;
 	std::shared_ptr<rtc::DataChannel> channel = nullptr;
