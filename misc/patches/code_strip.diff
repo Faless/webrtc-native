@@ -1,0 +1,97 @@
+diff --git a/godot-cpp/tools/android.py b/godot-cpp/tools/android.py
+index e63c1fd27..19fc7e963 100644
+--- a/godot-cpp/tools/android.py
++++ b/godot-cpp/tools/android.py
+@@ -118,6 +118,8 @@ def generate(env):
+     env.Append(CCFLAGS=arch_info["ccflags"])
+     env.Append(LINKFLAGS=["--target=" + arch_info["target"] + env["android_api_level"], "-march=" + arch_info["march"]])
+ 
++    env.Append(LINKFLAGS=["-Wl,--gc-sections"])
++
+     env.Append(CPPDEFINES=["ANDROID_ENABLED", "UNIX_ENABLED"])
+ 
+     # Refer to https://github.com/godotengine/godot/blob/master/platform/android/detect.py
+diff --git a/godot-cpp/tools/common_compiler_flags.py b/godot-cpp/tools/common_compiler_flags.py
+index d5013e828..9a0a60a6a 100644
+--- a/godot-cpp/tools/common_compiler_flags.py
++++ b/godot-cpp/tools/common_compiler_flags.py
+@@ -49,6 +49,9 @@ def generate(env):
+         env.Append(CXXFLAGS=["/EHsc"])
+ 
+     if not env.get("is_msvc", False):
++        if not env["use_mingw"]:
++            env.Append(CCFLAGS=["-ffunction-sections", "-fdata-sections"])
++
+         if env["symbols_visibility"] == "visible":
+             env.Append(CCFLAGS=["-fvisibility=default"])
+             env.Append(LINKFLAGS=["-fvisibility=default"])
+@@ -108,7 +111,7 @@ def generate(env):
+         else:
+             if using_clang(env) and not is_vanilla_clang(env) and not env["use_mingw"]:
+                 # Apple Clang, its linker doesn't like -s.
+-                env.Append(LINKFLAGS=["-Wl,-S", "-Wl,-x", "-Wl,-dead_strip"])
++                env.Append(LINKFLAGS=["-Wl,-S", "-Wl,-x"])
+             else:
+                 env.Append(LINKFLAGS=["-s"])
+ 
+diff --git a/godot-cpp/tools/ios.py b/godot-cpp/tools/ios.py
+index 4e2a45c22..85e060650 100644
+--- a/godot-cpp/tools/ios.py
++++ b/godot-cpp/tools/ios.py
+@@ -97,6 +97,8 @@ def generate(env):
+     env.Append(CCFLAGS=["-isysroot", env["IOS_SDK_PATH"]])
+     env.Append(LINKFLAGS=["-isysroot", env["IOS_SDK_PATH"], "-F" + env["IOS_SDK_PATH"]])
+ 
++    env.Append(LINKFLAGS=["-Wl,-dead_strip"])
++
+     env.Append(CPPDEFINES=["IOS_ENABLED", "UNIX_ENABLED"])
+ 
+     # Refer to https://github.com/godotengine/godot/blob/master/platform/ios/detect.py:
+diff --git a/godot-cpp/tools/linux.py b/godot-cpp/tools/linux.py
+index 2975c68a6..cc10ff2fb 100644
+--- a/godot-cpp/tools/linux.py
++++ b/godot-cpp/tools/linux.py
+@@ -42,6 +42,8 @@ def generate(env):
+         env.Append(CCFLAGS=["-march=rv64gc"])
+         env.Append(LINKFLAGS=["-march=rv64gc"])
+ 
++    env.Append(LINKFLAGS=["-Wl,--gc-sections"])
++
+     # Link statically for portability
+     if env["use_static_cpp"]:
+         env.Append(LINKFLAGS=["-static-libgcc", "-static-libstdc++"])
+diff --git a/godot-cpp/tools/macos.py b/godot-cpp/tools/macos.py
+index 541249cb4..c306113d5 100644
+--- a/godot-cpp/tools/macos.py
++++ b/godot-cpp/tools/macos.py
+@@ -63,6 +63,8 @@ def generate(env):
+         env.Append(CCFLAGS=["-isysroot", env["macos_sdk_path"]])
+         env.Append(LINKFLAGS=["-isysroot", env["macos_sdk_path"]])
+ 
++    env.Append(LINKFLAGS=["-Wl,-dead_strip"])
++
+     env.Append(CPPDEFINES=["MACOS_ENABLED", "UNIX_ENABLED"])
+ 
+     # Refer to https://github.com/godotengine/godot/blob/master/platform/macos/detect.py
+diff --git a/godot-cpp/tools/windows.py b/godot-cpp/tools/windows.py
+index 9aad0d80a..c0ba6cfc8 100644
+--- a/godot-cpp/tools/windows.py
++++ b/godot-cpp/tools/windows.py
+@@ -140,7 +140,7 @@ def generate(env):
+         env["SHLIBSUFFIX"] = ".dll"
+ 
+         env.Append(CCFLAGS=["-Wwrite-strings"])
+-        env.Append(LINKFLAGS=["-Wl,--no-undefined"])
++        env.Append(LINKFLAGS=["-Wl,--no-undefined", "-Wl,--gc-sections"])
+         if env["use_static_cpp"]:
+             env.Append(
+                 LINKFLAGS=[
+@@ -186,7 +186,7 @@ def generate(env):
+         env["SHLIBSUFFIX"] = ".dll"
+ 
+         env.Append(CCFLAGS=["-Wwrite-strings"])
+-        env.Append(LINKFLAGS=["-Wl,--no-undefined"])
++        env.Append(LINKFLAGS=["-Wl,--no-undefined", "-Wl,--gc-sections"])
+         if env["use_static_cpp"]:
+             env.Append(
+                 LINKFLAGS=[
