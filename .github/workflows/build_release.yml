@@ -228,6 +228,7 @@ jobs:
       - name: Patch godot-cpp for smaller builds.
         run: |
           patch -p1 < misc/patches/static_cpp.diff
+          patch -p1 < misc/patches/code_strip.diff
 
       - name: Print tools versions
         run: |
