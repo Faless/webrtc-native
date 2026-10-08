@@ -1,0 +1,33 @@
+diff --git a/godot-cpp/cmake/linux.cmake b/cmake/linux.cmake
+index c782bce3f..2561ad55e 100644
+--- a/godot-cpp/cmake/linux.cmake
++++ b/godot-cpp/cmake/linux.cmake
+@@ -31,6 +31,8 @@ function(linux_generate)
+             $<${STATIC_CPP}:
+                 -static-libgcc
+                 -static-libstdc++
++                -Wl,--gc-sections
++                -Wl,--exclude-libs=libstdc++.a:libgcc.a:libgcc_eh.a
+             >
+     )
+     # gersemi: on
+diff --git a/godot-cpp/tools/linux.py b/tools/linux.py
+index 2975c68a6..32f07dcf1 100644
+--- a/godot-cpp/tools/linux.py
++++ b/godot-cpp/tools/linux.py
+@@ -44,7 +44,14 @@ def generate(env):
+ 
+     # Link statically for portability
+     if env["use_static_cpp"]:
+-        env.Append(LINKFLAGS=["-static-libgcc", "-static-libstdc++"])
++        env.Append(
++            LINKFLAGS=[
++                "-static-libgcc",
++                "-static-libstdc++",
++                "-Wl,--gc-sections",
++                "-Wl,--exclude-libs=libstdc++.a:libgcc.a:libgcc_eh.a",
++            ]
++        )
+ 
+     env.Append(CPPDEFINES=["LINUX_ENABLED", "UNIX_ENABLED"])
+ 

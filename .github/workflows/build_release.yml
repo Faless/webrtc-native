@@ -225,6 +225,10 @@ jobs:
         run: |
           patch -p1 < misc/patches/build_profile_3.x.diff
 
+      - name: Patch godot-cpp for smaller builds.
+        run: |
+          patch -p1 < misc/patches/static_cpp.diff
+
       - name: Print tools versions
         run: |
           python --version
