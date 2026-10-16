@@ -234,6 +234,9 @@ if env["godot_version"] != "3" and env["platform"] == "macos":
         SUBST_DICT={"{LIBRARY_NAME}": result_name, "{DISPLAY_NAME}": "libwebrtc_native" + env["suffix"]},
     )
     library = [library_file, plist_file]
+elif env["platform"] == "ios":
+    result_name = "libwebrtc_native{}.a".format(env["suffix"])
+    library = env.StaticLibrary(target=os.path.join(result_path, "lib", result_name), source=sources)
 else:
     library = env.SharedLibrary(target=os.path.join(result_path, "lib", result_name), source=sources)
 
