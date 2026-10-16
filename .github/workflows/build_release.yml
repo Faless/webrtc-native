@@ -161,6 +161,7 @@ jobs:
         run: |
           patch -p1 < misc/patches/static_cpp.diff
           patch -p1 < misc/patches/code_strip.diff
+          patch -p1 < misc/patches/no-inline-binds.diff
 
       - name: Print tools versions
         run: |

@@ -1,0 +1,178 @@
+diff --git a/godot-cpp/binding_generator.py b/godot-cpp/binding_generator.py
+index e281ba4..878c063 100644
+--- a/godot-cpp/binding_generator.py
++++ b/godot-cpp/binding_generator.py
+@@ -1277,24 +1277,20 @@ def generate_builtin_class_source(builtin_api, size, used_classes, fully_used_cl
+         result.append("\tString::_init_bindings_constructors_destructor();")
+     result.append(f"\t{class_name}::_init_bindings_constructors_destructor();")
+ 
+-    result.append("\tStringName _gde_name;")
+-
+     if "methods" in builtin_api:
+         for method in builtin_api["methods"]:
+             # TODO: Add error check for hash mismatch.
+-            result.append(f'\t_gde_name = StringName("{method["name"]}");')
+             result.append(
+-                f"\t_method_bindings.method_{method['name']} = ::godot::gdextension_interface::variant_get_ptr_builtin_method({enum_type_name}, _gde_name._native_ptr(), {method['hash']});"
++                f'\t_method_bindings.method_{method["name"]} = ::godot::internal::get_builtin_method({enum_type_name}, "{method["name"]}", {method["hash"]});'
+             )
+ 
+     if "members" in builtin_api:
+         for member in builtin_api["members"]:
+-            result.append(f'\t_gde_name = StringName("{member["name"]}");')
+             result.append(
+-                f"\t_method_bindings.member_{member['name']}_setter = ::godot::gdextension_interface::variant_get_ptr_setter({enum_type_name}, _gde_name._native_ptr());"
++                f'\t_method_bindings.member_{member["name"]}_setter = ::godot::internal::get_builtin_setter({enum_type_name}, "{member["name"]}");'
+             )
+             result.append(
+-                f"\t_method_bindings.member_{member['name']}_getter = ::godot::gdextension_interface::variant_get_ptr_getter({enum_type_name}, _gde_name._native_ptr());"
++                f'\t_method_bindings.member_{member["name"]}_getter = ::godot::internal::get_builtin_getter({enum_type_name}, "{member["name"]}");'
+             )
+ 
+     if "indexing_return_type" in builtin_api:
+@@ -2195,7 +2191,7 @@ def generate_engine_class_source(class_api, used_classes, fully_used_classes, us
+ 
+             # Method body.
+             result.append(
+-                f'\tstatic GDExtensionMethodBindPtr _gde_method_bind = ::godot::gdextension_interface::classdb_get_method_bind({class_name}::get_class_static()._native_ptr(), StringName("{method["name"]}")._native_ptr(), {method["hash"]});'
++                f'\tstatic GDExtensionMethodBindPtr _gde_method_bind = ::godot::internal::get_method_bind({class_name}::get_class_static(), "{method["name"]}", {method["hash"]});'
+             )
+             method_call = "\t"
+             has_return = "return_value" in method and method["return_value"]["type"] != "void"
+@@ -2512,7 +2508,7 @@ def generate_utility_functions(api, output_dir, hooks=None):
+         # Function body.
+ 
+         source.append(
+-            f'\tstatic GDExtensionPtrUtilityFunction _gde_function = ::godot::gdextension_interface::variant_get_ptr_utility_function(StringName("{function["name"]}")._native_ptr(), {function["hash"]});'
++            f'\tstatic GDExtensionPtrUtilityFunction _gde_function = ::godot::internal::get_utility_function("{function["name"]}", {function["hash"]});'
+         )
+         has_return = "return_type" in function and function["return_type"] != "void"
+         if has_return:
+diff --git a/godot-cpp/include/godot_cpp/classes/wrapped.hpp b/godot-cpp/include/godot_cpp/classes/wrapped.hpp
+index 9611ee7..8d396d8 100644
+--- a/godot-cpp/include/godot_cpp/classes/wrapped.hpp
++++ b/godot-cpp/include/godot_cpp/classes/wrapped.hpp
+@@ -135,7 +135,7 @@ protected:
+ 	virtual ~Wrapped() {}
+ 
+ public:
+-	static const StringName &get_class_static() {
++	static _NO_INLINE_ const StringName &get_class_static() {
+ 		static const StringName string_name = StringName("Wrapped");
+ 		return string_name;
+ 	}
+@@ -271,7 +271,7 @@ public: \
+ 		initialized = true; \
+ 	} \
+ \
+-	static const ::godot::StringName &get_class_static() { \
++	static _NO_INLINE_ const ::godot::StringName &get_class_static() { \
+ 		static const ::godot::StringName string_name = ::godot::StringName(U## #m_class); \
+ 		return string_name; \
+ 	} \
+@@ -484,7 +484,7 @@ public: \
+ \
+ 	static void initialize_class() {} \
+ \
+-	static const ::godot::StringName &get_class_static() { \
++	static _NO_INLINE_ const ::godot::StringName &get_class_static() { \
+ 		static const ::godot::StringName string_name = ::godot::StringName(#m_alias_for); \
+ 		return string_name; \
+ 	} \
+diff --git a/godot-cpp/include/godot_cpp/core/error_macros.hpp b/godot-cpp/include/godot_cpp/core/error_macros.hpp
+index 22b71d7..4487e95 100644
+--- a/godot-cpp/include/godot_cpp/core/error_macros.hpp
++++ b/godot-cpp/include/godot_cpp/core/error_macros.hpp
+@@ -800,14 +800,12 @@ bool is_print_verbose_enabled();
+ #ifdef DEBUG_ENABLED
+ #define CHECK_METHOD_BIND_RET(m_mb, m_ret) \
+ 	if (unlikely(!m_mb)) { \
+-		ERR_PRINT_ONCE("Method bind was not found. Likely the engine method changed to an incompatible version."); \
+ 		return m_ret; \
+ 	} else \
+ 		((void)0)
+ 
+ #define CHECK_METHOD_BIND(m_mb) \
+ 	if (unlikely(!m_mb)) { \
+-		ERR_PRINT_ONCE("Method bind was not found. Likely the engine method changed to an incompatible version."); \
+ 		return; \
+ 	} else \
+ 		((void)0)
+diff --git a/godot-cpp/include/godot_cpp/godot.hpp b/godot-cpp/include/godot_cpp/godot.hpp
+index 9c4f4eb..91b7d7f 100644
+--- a/godot-cpp/include/godot_cpp/godot.hpp
++++ b/godot-cpp/include/godot_cpp/godot.hpp
+@@ -48,6 +48,8 @@ extern "C" GDExtensionGodotVersion godot_version;
+ 
+ } // namespace gdextension_interface
+ 
++class StringName;
++
+ namespace internal {
+ 
+ class DocDataRegistration {
+@@ -55,6 +57,12 @@ public:
+ 	DocDataRegistration(const char *p_hash, int p_uncompressed_size, int p_compressed_size, const unsigned char *p_data);
+ };
+ 
++GDExtensionMethodBindPtr get_method_bind(const StringName &p_class_name, const char *p_method_name, GDExtensionInt p_hash);
++GDExtensionPtrUtilityFunction get_utility_function(const char *p_function_name, GDExtensionInt p_hash);
++GDExtensionPtrBuiltInMethod get_builtin_method(GDExtensionVariantType p_type, const char *p_method_name, GDExtensionInt p_hash);
++GDExtensionPtrSetter get_builtin_setter(GDExtensionVariantType p_type, const char *p_member_name);
++GDExtensionPtrGetter get_builtin_getter(GDExtensionVariantType p_type, const char *p_member_name);
++
+ } // namespace internal
+ 
+ enum ModuleInitializationLevel {
+diff --git a/godot-cpp/src/godot.cpp b/godot-cpp/src/godot.cpp
+index 5ffc758..75f0a91 100644
+--- a/godot-cpp/src/godot.cpp
++++ b/godot-cpp/src/godot.cpp
+@@ -36,6 +36,8 @@
+ #include <godot_cpp/core/load_proc_address.inc>
+ #include <godot_cpp/core/memory.hpp>
+ #include <godot_cpp/core/version.hpp>
++#include <godot_cpp/variant/string.hpp>
++#include <godot_cpp/variant/string_name.hpp>
+ #include <godot_cpp/variant/variant.hpp>
+ 
+ #include <godot_cpp/core/error_macros.hpp>
+@@ -91,6 +93,38 @@ DocDataRegistration::DocDataRegistration(const char *p_hash, int p_uncompressed_
+ 	doc_data.data = p_data;
+ }
+ 
++GDExtensionMethodBindPtr get_method_bind(const StringName &p_class_name, const char *p_method_name, GDExtensionInt p_hash) {
++	GDExtensionMethodBindPtr method_bind = ::godot::gdextension_interface::classdb_get_method_bind(p_class_name._native_ptr(), StringName(p_method_name)._native_ptr(), p_hash);
++#ifdef DEBUG_ENABLED
++	if (unlikely(!method_bind)) {
++		ERR_PRINT(vformat("Method bind was not found for %s::%s. Likely the engine method changed to an incompatible version.", p_class_name, p_method_name));
++	}
++#endif
++	return method_bind;
++}
++
++GDExtensionPtrUtilityFunction get_utility_function(const char *p_function_name, GDExtensionInt p_hash) {
++	GDExtensionPtrUtilityFunction function = ::godot::gdextension_interface::variant_get_ptr_utility_function(StringName(p_function_name)._native_ptr(), p_hash);
++#ifdef DEBUG_ENABLED
++	if (unlikely(!function)) {
++		ERR_PRINT(vformat("Utility function was not found: %s. Likely the engine function changed to an incompatible version.", p_function_name));
++	}
++#endif
++	return function;
++}
++
++GDExtensionPtrBuiltInMethod get_builtin_method(GDExtensionVariantType p_type, const char *p_method_name, GDExtensionInt p_hash) {
++	return ::godot::gdextension_interface::variant_get_ptr_builtin_method(p_type, StringName(p_method_name)._native_ptr(), p_hash);
++}
++
++GDExtensionPtrSetter get_builtin_setter(GDExtensionVariantType p_type, const char *p_member_name) {
++	return ::godot::gdextension_interface::variant_get_ptr_setter(p_type, StringName(p_member_name)._native_ptr());
++}
++
++GDExtensionPtrGetter get_builtin_getter(GDExtensionVariantType p_type, const char *p_member_name) {
++	return ::godot::gdextension_interface::variant_get_ptr_getter(p_type, StringName(p_member_name)._native_ptr());
++}
++
+ } // namespace internal
+ 
+ bool GDExtensionBinding::api_initialized = false;
